@@ -1,31 +1,45 @@
-# Ejemplo básico de .gitlab-ci.yml
+# Ejemplo de .gitlab-ci.yml con sección include existente
 stages:
-  - build
+  - setup
   - test
+  - build
   - deploy
 
-variables:
-  GIT_DEPTH: "3"
+include:
+  - local: 'ci/build-jobs.yml'
+  - local: 'ci/test-jobs.yml'
+  - project: 'my-group/my-project'
+    file: '/templates/ci-template.yml'
+    ref: main
 
-build-job:
-  stage: build
+variables:
+  GIT_STRATEGY: fetch
+
+setup-job:
+  stage: setup
   script:
-    - echo "Compilando la aplicación..."
-    - echo "Compilación completada."
-  artifacts:
-    paths:
-      - build/
+    - echo "Configurando el entorno..."
+    - mkdir -p build
 
 test-job:
   stage: test
   script:
-    - echo "Ejecutando tests..."
-    - echo "Tests completados exitosamente."
+    - echo "Ejecutando pruebas..."
+  dependencies:
+    - setup-job
+
+build-job:
+  stage: build
+  script:
+    - echo "Compilando el proyecto..."
+  artifacts:
+    paths:
+      - build/
 
 deploy-job:
   stage: deploy
   script:
-    - echo "Desplegando aplicación..."
-    - echo "Aplicación desplegada correctamente."
+    - echo "Desplegando a producción..."
   only:
     - main
+  when: manual
