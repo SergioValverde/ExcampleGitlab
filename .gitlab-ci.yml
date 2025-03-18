@@ -1,40 +1,34 @@
-# Ejemplo de .gitlab-ci.yml con sección include existente
+# Ejemplo incorrecto con múltiples bloques include
 stages:
-  - setup
-  - test
+  - prepare
   - build
+  - test
   - deploy
 
 include:
-  - local: 'ci/build-jobs.yml'
-  - local: 'ci/test-jobs.yml'
-  - project: 'my-group/my-project'
-    file: '/templates/ci-template.yml'
-    ref: main
+  - local: 'ci/dependencies.yml'
 
 variables:
-  GIT_STRATEGY: fetch
+  NODE_ENV: production
 
-setup-job:
-  stage: setup
+prepare-job:
+  stage: prepare
   script:
-    - echo "Configurando el entorno..."
-    - mkdir -p build
-
-test-job:
-  stage: test
-  script:
-    - echo "Ejecutando pruebas..."
-  dependencies:
-    - setup-job
+    - echo "Preparando dependencias..."
 
 build-job:
   stage: build
   script:
-    - echo "Compilando el proyecto..."
-  artifacts:
-    paths:
-      - build/
+    - echo "Compilando la aplicación..."
+
+# Este segundo bloque include causará un error de sintaxis YAML
+include:
+  - local: 'ci/test-suites.yml'
+
+test-job:
+  stage: test
+  script:
+    - echo "Ejecutando tests unitarios..."
 
 deploy-job:
   stage: deploy
@@ -42,4 +36,3 @@ deploy-job:
     - echo "Desplegando a producción..."
   only:
     - main
-  when: manual
