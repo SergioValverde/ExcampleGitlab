@@ -1,101 +1,83 @@
+# Ejemplo para proyecto con múltiples lenguajes
 stages:
-  - install
+  - validate
+  - test
   - build
-  - code-quality
+  - deploy
 
 variables:
-  SAST_EXCLUDED_ANALYZERS: "nodejs-scan-sast" # this only scans js files, doesn't work with ts
+  POSTGRES_DB: test_db
+  POSTGRES_USER: runner
+  POSTGRES_PASSWORD: runner_password
+  POSTGRES_HOST_AUTH_METHOD: trust
 
-# Install dependencies
-install_dependencies:
-  stage: install
-  image: node:20.11.1
-  tags:
-    - global
+validate:
+  stage: validate
+  image: alpine:latest
+  script:
+    - echo "Validando estructura del proyecto..."
+
+python-test:
+  stage: test
+  image: python:3.9
+  services:
+    - postgres:13
+  variables:
+    DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB"
   before_script:
-    - echo "@cone:registry=https://eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/" > .npmrc
-    - echo "//eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/:_authToken=${GITLAB_ACCESS_TOKEN}" >> .npmrc
+    - pip install -r requirements.txt
   script:
-    - npm ci
-  cache:
-    paths:
-      - node_modules/
-  artifacts:
-    expire_in: 1 hour
-    paths:
-      - node_modules/
+    - pytest --cov=app
+  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+\%)/'
 
-build:
+javascript-test:
+  stage: test
+  image: node:16
+  script:
+    - cd frontend
+    - npm install
+    - npm test
+  coverage: '/All files\s*\|\s*(\d+(?:\.\d+)?)/'
+
+build-backend:
   stage: build
-  image: node:20.11.1
-  tags:
-    - global
+  image: python:3.9
   script:
-    - npm run build:esbuild
-  cache:
-    paths:
-      - node_modules/
-      - dist/
+    - echo "Construyendo backend..."
+    - pip install -r requirements.txt
+    - python setup.py bdist_wheel
   artifacts:
     paths:
-      - dist/
-    expire_in: 1 hour
+      - dist/*.whl
 
-test:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
+build-frontend:
+  stage: build
+  image: node:16
   script:
-    - npm run test
-  cache:
+    - cd frontend
+    - npm install
+    - npm run build
+  artifacts:
     paths:
-      - node_modules/
+      - frontend/dist/
 
-lint:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
+deploy:staging:
+  stage: deploy
+  image: alpine:latest
   script:
-    - npm run lint
-  cache:
-    paths:
-      - node_modules/
+    - echo "Desplegando en staging..."
+  environment:
+    name: staging
+  only:
+    - develop
 
-prettier:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
+deploy:production:
+  stage: deploy
+  image: alpine:latest
   script:
-    - npm run prettier
-  cache:
-    paths:
-      - node_modules/
-check-types:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
-  script:
-    - npm run check-types
-  cache:
-    paths:
-      - node_modules/
-sast:
-  stage: code-quality
-  tags:
-    - global
-  cache:
-    paths:
-      - dist/
-      - node_modules/
-secret_detection:
-  stage: code-quality
-  tags:
-    - global
-include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
-
+    - echo "Desplegando en producción..."
+  environment:
+    name: production
+  only:
+    - main
+  when: manual
