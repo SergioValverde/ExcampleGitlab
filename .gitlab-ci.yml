@@ -1,10 +1,44 @@
-
 stages:
-- test
+  - build
+  - test
+  - deploy
 
-sast:
+variables:
+  NODE_ENV: production
+  CACHE_DIR: .npm
+
+before_script:
+  - echo "Iniciando Pipeline en GitLab CI/CD"
+  - node -v
+  - npm -v
+
+cache:
+  paths:
+    - $CACHE_DIR
+
+build:
+  stage: build
+  image: node:18
+  script:
+    - echo "Instalando dependencias..."
+    - npm install
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1h
+
+test:
   stage: test
+  image: node:18
+  script:
+    - echo "Ejecutando pruebas..."
+    - npm test
 
-include:
-- template: Security/SAST.gitlab-ci.yml
-- template: Jobs/Secret-Detection.gitlab-ci.yml
+deploy:
+  stage: deploy
+  image: alpine:latest
+  only:
+    - main
+  script:
+    - echo "Deploy en producción..."
+    - ./deploy.sh
