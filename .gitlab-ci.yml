@@ -1,38 +1,62 @@
-# Ejemplo incorrecto con múltiples bloques include
 stages:
-  - prepare
-  - build
-  - test
-  - deploy
+  - install
+  - verify
 
-include:
-  - local: 'ci/dependencies.yml'
+default:
+  image: node:20.11.1
+  cache:
+    paths:
+      - node_modules/
+  tags:
+    - global
 
 variables:
-  NODE_ENV: production
+  CERT_FILENAME: "ZscalerRootCertificate-2048-SHA256.crt"
+  CERT_PATH: "/etc/gitlab-runner/certs/ZscalerRootCertificate-2048-SHA256.crt"
+  SYSTEM_CERTS_PATH: "/usr/local/share/ca-certificates"
 
-prepare-job:
-  stage: prepare
+install:
+  stage: install
   script:
-    - echo "Preparando dependencias..."
-
-build-job:
-  stage: build
-  script:
-    - echo "Compilando la aplicación..."
-
-# Este segundo bloque include causará un error de sintaxis YAML
-include:
-  - local: 'ci/test-suites.yml'
-
-test-job:
-  stage: test
-  script:
-    - echo "Ejecutando tests unitarios..."
-
-deploy-job:
-  stage: deploy
-  script:
-    - echo "Desplegando a producción..."
+    - |
+      echo "Installing ca-certificate tool"
+      apt-get update && apt-get install -y ca-certificates
+    - |
+      echo "Setting up Zscaler certificate..."
+      cp $CERT_PATH $SYSTEM_CERTS_PATH
+      update-ca-certificates
+      export NODE_EXTRA_CA_CERTS="$SYSTEM_CERTS_PATH/$CERT_FILENAME"
+      export SSL_CERT_FILE="$SYSTEM_CERTS_PATH/$CERT_FILENAME"
+    - |
+      echo "Running installation of packages..."
+      npm install --frozen-lockfile
   only:
-    - main
+    - merge_requests
+
+lint:
+  stage: verify
+  script:
+    - npm run lint
+  only:
+    - merge_requests
+
+format-check:
+  stage: verify
+  script:
+    - npm run format:check
+  only:
+    - merge_requests
+
+typescript:
+  stage: verify
+  script:
+    - npm run compile
+  only:
+    - merge_requests
+
+tests:
+  stage: verify
+  script:
+    - npm run test
+  only:
+    - merge_requests
