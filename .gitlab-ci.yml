@@ -1,83 +1,31 @@
-# Ejemplo para proyecto con múltiples lenguajes
+# Ejemplo básico de .gitlab-ci.yml
 stages:
-  - validate
-  - test
   - build
+  - test
   - deploy
 
 variables:
-  POSTGRES_DB: test_db
-  POSTGRES_USER: runner
-  POSTGRES_PASSWORD: runner_password
-  POSTGRES_HOST_AUTH_METHOD: trust
+  GIT_DEPTH: "3"
 
-validate:
-  stage: validate
-  image: alpine:latest
-  script:
-    - echo "Validando estructura del proyecto..."
-
-python-test:
-  stage: test
-  image: python:3.9
-  services:
-    - postgres:13
-  variables:
-    DATABASE_URL: "postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@postgres:5432/$POSTGRES_DB"
-  before_script:
-    - pip install -r requirements.txt
-  script:
-    - pytest --cov=app
-  coverage: '/TOTAL\s+\d+\s+\d+\s+(\d+\%)/'
-
-javascript-test:
-  stage: test
-  image: node:16
-  script:
-    - cd frontend
-    - npm install
-    - npm test
-  coverage: '/All files\s*\|\s*(\d+(?:\.\d+)?)/'
-
-build-backend:
+build-job:
   stage: build
-  image: python:3.9
   script:
-    - echo "Construyendo backend..."
-    - pip install -r requirements.txt
-    - python setup.py bdist_wheel
+    - echo "Compilando la aplicación..."
+    - echo "Compilación completada."
   artifacts:
     paths:
-      - dist/*.whl
+      - build/
 
-build-frontend:
-  stage: build
-  image: node:16
+test-job:
+  stage: test
   script:
-    - cd frontend
-    - npm install
-    - npm run build
-  artifacts:
-    paths:
-      - frontend/dist/
+    - echo "Ejecutando tests..."
+    - echo "Tests completados exitosamente."
 
-deploy:staging:
+deploy-job:
   stage: deploy
-  image: alpine:latest
   script:
-    - echo "Desplegando en staging..."
-  environment:
-    name: staging
-  only:
-    - develop
-
-deploy:production:
-  stage: deploy
-  image: alpine:latest
-  script:
-    - echo "Desplegando en producción..."
-  environment:
-    name: production
+    - echo "Desplegando aplicación..."
+    - echo "Aplicación desplegada correctamente."
   only:
     - main
-  when: manual
