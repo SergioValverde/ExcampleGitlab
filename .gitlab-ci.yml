@@ -1,44 +1,101 @@
 stages:
+  - install
   - build
-  - test
-  - deploy
+  - code-quality
 
 variables:
-  NODE_ENV: production
-  CACHE_DIR: .npm
+  SAST_EXCLUDED_ANALYZERS: "nodejs-scan-sast" # this only scans js files, doesn't work with ts
 
-before_script:
-  - echo "Iniciando Pipeline en GitLab CI/CD"
-  - node -v
-  - npm -v
-
-cache:
-  paths:
-    - $CACHE_DIR
+# Install dependencies
+install_dependencies:
+  stage: install
+  image: node:20.11.1
+  tags:
+    - global
+  before_script:
+    - echo "@cone:registry=https://eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/" > .npmrc
+    - echo "//eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/:_authToken=${GITLAB_ACCESS_TOKEN}" >> .npmrc
+  script:
+    - npm ci
+  cache:
+    paths:
+      - node_modules/
+  artifacts:
+    expire_in: 1 hour
+    paths:
+      - node_modules/
 
 build:
   stage: build
-  image: node:18
+  image: node:20.11.1
+  tags:
+    - global
   script:
-    - echo "Instalando dependencias..."
-    - npm install
-  artifacts:
+    - npm run build:esbuild
+  cache:
     paths:
       - node_modules/
-    expire_in: 1h
+      - dist/
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 hour
 
 test:
-  stage: test
-  image: node:18
+  stage: code-quality
+  image: node:20.11.1
+  tags:
+    - global
   script:
-    - echo "Ejecutando pruebas..."
-    - npm test
+    - npm run test
+  cache:
+    paths:
+      - node_modules/
 
-deploy:
-  stage: deploy
-  image: alpine:latest
-  only:
-    - main
+lint:
+  stage: code-quality
+  image: node:20.11.1
+  tags:
+    - global
   script:
-    - echo "Deploy en producción..."
-    - ./deploy.sh
+    - npm run lint
+  cache:
+    paths:
+      - node_modules/
+
+prettier:
+  stage: code-quality
+  image: node:20.11.1
+  tags:
+    - global
+  script:
+    - npm run prettier
+  cache:
+    paths:
+      - node_modules/
+check-types:
+  stage: code-quality
+  image: node:20.11.1
+  tags:
+    - global
+  script:
+    - npm run check-types
+  cache:
+    paths:
+      - node_modules/
+sast:
+  stage: code-quality
+  tags:
+    - global
+  cache:
+    paths:
+      - dist/
+      - node_modules/
+secret_detection:
+  stage: code-quality
+  tags:
+    - global
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
