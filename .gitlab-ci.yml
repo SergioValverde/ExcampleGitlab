@@ -2,7 +2,6 @@ stages:
   - setup
   - build
   - deploy
-  - test
 
 setup:
   stage: setup
