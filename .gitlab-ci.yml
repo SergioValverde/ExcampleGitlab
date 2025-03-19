@@ -1,24 +1,38 @@
 stages:
   - build
-  - pages
+  - test
+  - deploy
 
-build_docs:
+build_job:
   stage: build
   script:
-    - pip install mkdocs
-    - mkdocs build
+    - echo "Instalando dependencias..."
+    - npm install
   artifacts:
     paths:
-      - site/
+      - node_modules/
 
-pages:
-  stage: pages
-  dependencies:
-    - build_docs
+unit_test:
+  stage: test
   script:
-    - cp -r site/* public/
-  artifacts:
-    paths:
-      - public
+    - echo "Ejecutando tests unitarios..."
+    - npm run test:unit
+  dependencies:
+    - build_job
+
+integration_test:
+  stage: test
+  script:
+    - echo "Ejecutando tests de integración..."
+    - npm run test:integration
+  dependencies:
+    - build_job
+
+deploy_job:
+  stage: deploy
+  script:
+    - echo "Desplegando aplicación..."
+    - npm run deploy
   only:
     - main
+  when: manual
