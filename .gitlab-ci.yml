@@ -1,62 +1,34 @@
+# Ejemplo con uno de los templates de seguridad ya incluido
 stages:
-  - install
-  - verify
+  - build
+  - test
+  - security
+  - deploy
 
-default:
-  image: node:20.11.1
-  cache:
-    paths:
-      - node_modules/
-  tags:
-    - global
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - local: 'ci/build-config.yml'
 
 variables:
-  CERT_FILENAME: "ZscalerRootCertificate-2048-SHA256.crt"
-  CERT_PATH: "/etc/gitlab-runner/certs/ZscalerRootCertificate-2048-SHA256.crt"
-  SYSTEM_CERTS_PATH: "/usr/local/share/ca-certificates"
+  SAST_EXCLUDED_PATHS: "spec, test, tests, tmp"
+  SCAN_KUBERNETES_MANIFESTS: "true"
 
-install:
-  stage: install
+build-job:
+  stage: build
   script:
-    - |
-      echo "Installing ca-certificate tool"
-      apt-get update && apt-get install -y ca-certificates
-    - |
-      echo "Setting up Zscaler certificate..."
-      cp $CERT_PATH $SYSTEM_CERTS_PATH
-      update-ca-certificates
-      export NODE_EXTRA_CA_CERTS="$SYSTEM_CERTS_PATH/$CERT_FILENAME"
-      export SSL_CERT_FILE="$SYSTEM_CERTS_PATH/$CERT_FILENAME"
-    - |
-      echo "Running installation of packages..."
-      npm install --frozen-lockfile
-  only:
-    - merge_requests
+    - echo "Compilando la aplicación..."
+  artifacts:
+    paths:
+      - dist/
 
-lint:
-  stage: verify
+test-job:
+  stage: test
   script:
-    - npm run lint
-  only:
-    - merge_requests
+    - echo "Ejecutando tests..."
 
-format-check:
-  stage: verify
+deploy-job:
+  stage: deploy
   script:
-    - npm run format:check
+    - echo "Desplegando aplicación..."
   only:
-    - merge_requests
-
-typescript:
-  stage: verify
-  script:
-    - npm run compile
-  only:
-    - merge_requests
-
-tests:
-  stage: verify
-  script:
-    - npm run test
-  only:
-    - merge_requests
+    - main
