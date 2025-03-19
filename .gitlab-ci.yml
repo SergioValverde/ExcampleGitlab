@@ -1,21 +1,29 @@
-# Ejemplo 1: Pipeline simple con build y deploy
 stages:
+  - prepare
   - build
-  - deploy
+  - analysis
 
-build_job:
+prepare:
+  stage: prepare
+  script:
+    - npm install
+
+build_app:
   stage: build
   script:
-    - echo "Compilando la aplicación..."
-    - make build
+    - npm run build
   artifacts:
     paths:
-      - build/
+      - dist/
 
-deploy_job:
-  stage: deploy
+code_quality:
+  stage: analysis
   script:
-    - echo "Desplegando aplicación en producción..."
-    - rsync -avz build/ user@server:/path/to/deployment/
-  only:
-    - main
+    - npm run lint
+  allow_failure: true
+
+security_scan:
+  stage: analysis
+  script:
+    - npm audit
+  allow_failure: true
