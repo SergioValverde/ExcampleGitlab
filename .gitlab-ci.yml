@@ -1,34 +1,45 @@
-# Ejemplo con uno de los templates de seguridad ya incluido
+# Ejemplo de .gitlab-ci.yml con sección include existente
 stages:
-  - build
+  - setup
   - test
-  - security
+  - build
   - deploy
 
 include:
-  - template: Security/SAST.gitlab-ci.yml
-  - local: 'ci/build-config.yml'
+  - local: 'ci/build-jobs.yml'
+  - local: 'ci/test-jobs.yml'
+  - project: 'my-group/my-project'
+    file: '/templates/ci-template.yml'
+    ref: main
 
 variables:
-  SAST_EXCLUDED_PATHS: "spec, test, tests, tmp"
-  SCAN_KUBERNETES_MANIFESTS: "true"
+  GIT_STRATEGY: fetch
 
-build-job:
-  stage: build
+setup-job:
+  stage: setup
   script:
-    - echo "Compilando la aplicación..."
-  artifacts:
-    paths:
-      - dist/
+    - echo "Configurando el entorno..."
+    - mkdir -p build
 
 test-job:
   stage: test
   script:
-    - echo "Ejecutando tests..."
+    - echo "Ejecutando pruebas..."
+  dependencies:
+    - setup-job
+
+build-job:
+  stage: build
+  script:
+    - echo "Compilando el proyecto..."
+  artifacts:
+    paths:
+      - build/
 
 deploy-job:
   stage: deploy
   script:
-    - echo "Desplegando aplicación..."
+    - echo "Desplegando a producción..."
   only:
     - main
+  when: manual
