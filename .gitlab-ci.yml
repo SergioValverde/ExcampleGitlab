@@ -1,38 +1,58 @@
 stages:
   - build
   - test
+  - quality
   - deploy
 
-build_job:
+build:
   stage: build
   script:
-    - echo "Instalando dependencias..."
-    - npm install
+    - mvn clean package -DskipTests
   artifacts:
     paths:
-      - node_modules/
+      - target/*.jar
 
-unit_test:
+unit_tests:
   stage: test
   script:
-    - echo "Ejecutando tests unitarios..."
-    - npm run test:unit
-  dependencies:
-    - build_job
+    - mvn test
+  artifacts:
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
 
-integration_test:
+integration_tests:
   stage: test
   script:
-    - echo "Ejecutando tests de integración..."
-    - npm run test:integration
-  dependencies:
-    - build_job
+    - mvn verify -DskipUnitTests
+  artifacts:
+    reports:
+      junit:
+        - target/failsafe-reports/TEST-*.xml
 
-deploy_job:
+code_quality:
+  stage: quality
+  script:
+    - mvn sonar:sonar
+  only:
+    - main
+    - develop
+
+deploy_staging:
   stage: deploy
   script:
-    - echo "Desplegando aplicación..."
-    - npm run deploy
+    - echo "Desplegando en entorno de staging"
+  environment:
+    name: staging
+  only:
+    - develop
+
+deploy_production:
+  stage: deploy
+  script:
+    - echo "Desplegando en producción"
+  environment:
+    name: production
   only:
     - main
   when: manual
