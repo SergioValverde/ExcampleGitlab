@@ -1,45 +1,124 @@
-# Ejemplo de .gitlab-ci.yml con sección include existente
+# Ejemplo 1: Pipeline simple con build y deploy
 stages:
-  - setup
-  - test
   - build
   - deploy
 
-include:
-  - local: 'ci/build-jobs.yml'
-  - local: 'ci/test-jobs.yml'
-  - project: 'my-group/my-project'
-    file: '/templates/ci-template.yml'
-    ref: main
-
-variables:
-  GIT_STRATEGY: fetch
-
-setup-job:
-  stage: setup
-  script:
-    - echo "Configurando el entorno..."
-    - mkdir -p build
-
-test-job:
-  stage: test
-  script:
-    - echo "Ejecutando pruebas..."
-  dependencies:
-    - setup-job
-
-build-job:
+build_job:
   stage: build
   script:
-    - echo "Compilando el proyecto..."
+    - echo "Compilando la aplicación..."
+    - make build
   artifacts:
     paths:
       - build/
 
-deploy-job:
+deploy_job:
   stage: deploy
   script:
-    - echo "Desplegando a producción..."
+    - echo "Desplegando aplicación en producción..."
+    - rsync -avz build/ user@server:/path/to/deployment/
   only:
     - main
+
+# Ejemplo 2: Pipeline enfocado en despliegue continuo
+stages:
+  - build
+  - review
+  - staging
+  - production
+
+build_docker:
+  stage: build
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+
+review_app:
+  stage: review
+  script:
+    - kubectl apply -f k8s/review.yaml
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: https://review-$CI_COMMIT_REF_SLUG.example.com
+  only:
+    - branches
+  except:
+    - main
+
+deploy_staging:
+  stage: staging
+  script:
+    - kubectl apply -f k8s/staging.yaml
+  environment:
+    name: staging
+    url: https://staging.example.com
+  only:
+    - main
+
+deploy_production:
+  stage: production
+  script:
+    - kubectl apply -f k8s/production.yaml
+  environment:
+    name: production
+    url: https://example.com
   when: manual
+  only:
+    - main
+
+# Ejemplo 3: Pipeline para documentación y despliegue
+stages:
+  - build
+  - pages
+
+build_docs:
+  stage: build
+  script:
+    - pip install mkdocs
+    - mkdocs build
+  artifacts:
+    paths:
+      - site/
+
+pages:
+  stage: pages
+  dependencies:
+    - build_docs
+  script:
+    - cp -r site/* public/
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+
+# Ejemplo 4: Pipeline de compilación y análisis estático
+stages:
+  - prepare
+  - build
+  - analysis
+
+prepare:
+  stage: prepare
+  script:
+    - npm install
+
+build_app:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+code_quality:
+  stage: analysis
+  script:
+    - npm run lint
+  allow_failure: true
+
+security_scan:
+  stage: analysis
+  script:
+    - npm audit
+  allow_failure: true
