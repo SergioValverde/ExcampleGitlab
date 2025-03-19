@@ -1,29 +1,44 @@
 stages:
-  - prepare
   - build
-  - analysis
+  - review
+  - staging
+  - production
 
-prepare:
-  stage: prepare
-  script:
-    - npm install
-
-build_app:
+build_docker:
   stage: build
   script:
-    - npm run build
-  artifacts:
-    paths:
-      - dist/
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
 
-code_quality:
-  stage: analysis
+review_app:
+  stage: review
   script:
-    - npm run lint
-  allow_failure: true
+    - kubectl apply -f k8s/review.yaml
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: https://review-$CI_COMMIT_REF_SLUG.example.com
+  only:
+    - branches
+  except:
+    - main
 
-security_scan:
-  stage: analysis
+deploy_staging:
+  stage: staging
   script:
-    - npm audit
-  allow_failure: true
+    - kubectl apply -f k8s/staging.yaml
+  environment:
+    name: staging
+    url: https://staging.example.com
+  only:
+    - main
+
+deploy_production:
+  stage: production
+  script:
+    - kubectl apply -f k8s/production.yaml
+  environment:
+    name: production
+    url: https://example.com
+  when: manual
+  only:
+    - main
