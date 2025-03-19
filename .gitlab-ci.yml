@@ -1,56 +1,63 @@
 stages:
+  - setup
   - build
-  - test
-  - quality
   - deploy
+  - test
 
-build:
-  stage: build
+setup:
+  stage: setup
   script:
-    - mvn clean package -DskipTests
+    - yarn install
   artifacts:
     paths:
-      - target/*.jar
+      - node_modules/
 
-unit_tests:
+lint:
   stage: test
   script:
-    - mvn test
-  artifacts:
-    reports:
-      junit:
-        - target/surefire-reports/TEST-*.xml
+    - yarn lint
 
-integration_tests:
+unit_test:
   stage: test
   script:
-    - mvn verify -DskipUnitTests
+    - yarn test:unit
   artifacts:
     reports:
-      junit:
-        - target/failsafe-reports/TEST-*.xml
+      junit: junit.xml
 
-code_quality:
-  stage: quality
+e2e_test:
+  stage: test
   script:
-    - mvn sonar:sonar
+    - yarn test:e2e
+  artifacts:
+    paths:
+      - cypress/screenshots/
+      - cypress/videos/
+
+build_app:
+  stage: build
+  script:
+    - yarn build
+  artifacts:
+    paths:
+      - dist/
   only:
     - main
     - develop
 
-deploy_staging:
+deploy_to_staging:
   stage: deploy
   script:
-    - echo "Desplegando en entorno de staging"
+    - echo "Desplegando en staging..."
   environment:
     name: staging
   only:
     - develop
 
-deploy_production:
+deploy_to_production:
   stage: deploy
   script:
-    - echo "Desplegando en producción"
+    - echo "Desplegando en producción..."
   environment:
     name: production
   only:
