@@ -1,7 +1,4 @@
-stages:
-  - setup
-  - build
-  - deploy
+
 
 setup:
   stage: setup
