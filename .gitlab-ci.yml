@@ -1,62 +1,99 @@
+stages:
+  - install
+  - build
+  - code-quality
 
+variables:
+  SAST_EXCLUDED_ANALYZERS: "nodejs-scan-sast" # this only scans js files, doesn't work with ts
 
-setup:
-  stage: setup
+install_dependencies:
+  stage: install
+  image: node:22.14
+  tags:
+    - global
+  before_script:
+    - npm config --location user set "registry=https://eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/" && \
+    - npm config --location user set "//eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/:_authToken=${GITLAB_ACCESS_TOKEN}"
   script:
-    - yarn install
+    - npm ci
+  cache:
+    paths:
+      - node_modules/
   artifacts:
+    expire_in: 1 hour
+    paths:
+      - node_modules/
+
+build:
+  stage: build
+  image: node:22.14
+  tags:
+    - global
+  script:
+    - npm run build:esbuild
+  cache:
+    paths:
+      - node_modules/
+      - dist/
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 hour
+
+test:
+  stage: code-quality
+  image: node:22.14
+  tags:
+    - global
+  script:
+    - npm run test
+  cache:
     paths:
       - node_modules/
 
 lint:
-  stage: test
+  stage: code-quality
+  image: node:22.14
+  tags:
+    - global
   script:
-    - yarn lint
-
-unit_test:
-  stage: test
-  script:
-    - yarn test:unit
-  artifacts:
-    reports:
-      junit: junit.xml
-
-e2e_test:
-  stage: test
-  script:
-    - yarn test:e2e
-  artifacts:
+    - npm run lint
+  cache:
     paths:
-      - cypress/screenshots/
-      - cypress/videos/
+      - node_modules/
 
-build_app:
-  stage: build
+prettier:
+  stage: code-quality
+  image: node:22.14
+  tags:
+    - global
   script:
-    - yarn build
-  artifacts:
+    - npm run prettier
+  cache:
+    paths:
+      - node_modules/
+check-types:
+  stage: code-quality
+  image: node:22.14
+  tags:
+    - global
+  script:
+    - npm run check-types
+  cache:
+    paths:
+      - node_modules/
+sast:
+  stage: code-quality
+  tags:
+    - global
+  cache:
     paths:
       - dist/
-  only:
-    - main
-    - develop
-
-deploy_to_staging:
-  stage: deploy
-  script:
-    - echo "Desplegando en staging..."
-  environment:
-    name: staging
-  only:
-    - develop
-
-deploy_to_production:
-  stage: deploy
-  script:
-    - echo "Desplegando en producción..."
-  environment:
-    name: production
-  only:
-    - main
-  when: manual
-
+      - node_modules/
+secret_detection:
+  stage: code-quality
+  tags:
+    - global
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
