@@ -57,3 +57,8 @@ publish:
     paths:
       - build/
       - node_modules/
+
+include:
+- template: Security/SAST.gitlab-ci.yml
+- template: Security/Secret-Detection.gitlab-ci.yml
+
