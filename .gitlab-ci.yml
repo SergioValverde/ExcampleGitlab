@@ -1,16 +1,19 @@
-variables:
-  SAST_EXCLUDED_ANALYZERS: "nodejs-scan-sast" # this only scans js files, doesn't work with ts
+stages:
+  - install
+  - build
+  - publish
 
+# Install dependencies
 install_dependencies:
   stage: install
-  image: node:22.14
+  image: node:20.11.1
   tags:
     - global
   before_script:
-    - npm config --location user set "registry=https://eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/" && \
-    - npm config --location user set "//eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/:_authToken=${GITLAB_ACCESS_TOKEN}"
+    - echo "@cone:registry=https://eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/" > .npmrc
+    - echo "//eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/:_authToken=${GITLAB_ACCESS_TOKEN}" >> .npmrc
   script:
-    - npm ci
+    - yarn ci
   cache:
     paths:
       - node_modules/
@@ -21,11 +24,11 @@ install_dependencies:
 
 build:
   stage: build
-  image: node:22.14
+  image: node:20.11.1
   tags:
     - global
   script:
-    - npm run build:esbuild
+    - yarn build
   cache:
     paths:
       - node_modules/
@@ -35,62 +38,21 @@ build:
       - dist/
     expire_in: 1 hour
 
-test:
-  stage: code-quality
-  image: node:22.14
+# Publish the npm package
+publish:
+  stage: publish
+  image: node:20.11.1
   tags:
     - global
   script:
-    - npm run test
+    - echo "@cone:registry=$NPM_REGISTRY" > .npmrc
+    - echo "//eugit.randstadgis.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}" >> .npmrc
+    - curl -I $NPM_REGISTRY
+    - npm publish
+  only:
+    - main
+  allow_failure: false
   cache:
     paths:
+      - build/
       - node_modules/
-
-lint:
-  stage: code-quality
-  image: node:22.14
-  tags:
-    - global
-  script:
-    - npm run lint
-  cache:
-    paths:
-      - node_modules/
-
-prettier:
-  stage: code-quality
-  image: node:22.14
-  tags:
-    - global
-  script:
-    - npm run prettier
-  cache:
-    paths:
-      - node_modules/
-check-types:
-  stage: code-quality
-  image: node:22.14
-  tags:
-    - global
-  script:
-    - npm run check-types
-  cache:
-    paths:
-      - node_modules/
-sast:
-  stage: code-quality
-  tags:
-    - global
-  cache:
-    paths:
-      - dist/
-      - node_modules/
-secret_detection:
-  stage: code-quality
-  tags:
-    - global
-include:
-
-
-
-
