@@ -1,8 +1,3 @@
-stages:
-  - install
-  - build
-  - code-quality
-
 variables:
   SAST_EXCLUDED_ANALYZERS: "nodejs-scan-sast" # this only scans js files, doesn't work with ts
 
