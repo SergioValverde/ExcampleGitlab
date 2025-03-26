@@ -62,3 +62,7 @@ deploy_to_production:
   only:
     - main
   when: manual
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
