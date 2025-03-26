@@ -63,5 +63,3 @@ deploy_to_production:
     - main
   when: manual
 
-
-include:
