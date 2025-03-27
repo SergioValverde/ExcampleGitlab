@@ -1,37 +1,41 @@
 stages:
-  - build
   - test
-  - push
+  - build
+  - deploy
 
-variables:
-  DOCKER_IMAGE: my-registry.example.com/my-project/my-app
+unit_tests:
+  stage: test
+  script:
+    - echo "Running unit tests..."
+    - npm test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+integration_tests:
+  stage: test
+  script:
+    - echo "Running integration tests..."
+    - npm run test:integration
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
 
 build:
   stage: build
-  image: docker:latest
-  services:
-    - docker:dind
   script:
-    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
-    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:latest
-  only:
-    - main
+    - echo "Building application..."
+    - npm run build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
-test:
-  stage: test
-  image: $DOCKER_IMAGE:$CI_COMMIT_SHA
+deploy_prod:
+  stage: deploy
   script:
-    - echo "Running container tests..."
-    - ./run-tests.sh
-
-push:
-  stage: push
-  image: docker:latest
-  services:
-    - docker:dind
-  script:
-    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin $DOCKER_REGISTRY
-    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA
-    - docker push $DOCKER_IMAGE:latest
-  only:
-    - main
+    - echo "Deploying to production..."
+    - ./deploy.sh prod
+  environment:
+    name: production
+    url: https://example.com
+  rules:
+    - if: '$CI_COMMIT_TAG != null'
