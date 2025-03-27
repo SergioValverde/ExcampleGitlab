@@ -1,101 +1,66 @@
 stages:
   - install
-  - build
-  - code-quality
+  - verify
+
+default:
+  image: node:20.11.1
+  cache:
+    paths:
+      - node_modules/
+  tags:
+    - global
 
 variables:
-  SAST_EXCLUDED_ANALYZERS: "nodejs-scan-sast" # this only scans js files, doesn't work with ts
+  CERT_FILENAME: 'ZscalerRootCertificate-2048-SHA256.crt'
+  CERT_PATH: '/etc/gitlab-runner/certs/ZscalerRootCertificate-2048-SHA256.crt'
+  SYSTEM_CERTS_PATH: '/usr/local/share/ca-certificates'
 
-# Install dependencies
-install_dependencies:
+install:
   stage: install
-  image: node:20.11.1
-  tags:
-    - global
-  before_script:
-    - echo "@cone:registry=https://eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/" > .npmrc
-    - echo "//eugit.randstadgis.com/api/v4/groups/ssc-grp-c-one/-/packages/npm/:_authToken=${GITLAB_ACCESS_TOKEN}" >> .npmrc
   script:
-    - npm ci
-  cache:
-    paths:
-      - node_modules/
-  artifacts:
-    expire_in: 1 hour
-    paths:
-      - node_modules/
-
-build:
-  stage: build
-  image: node:20.11.1
-  tags:
-    - global
-  script:
-    - npm run build:esbuild
-  cache:
-    paths:
-      - node_modules/
-      - dist/
-  artifacts:
-    paths:
-      - dist/
-    expire_in: 1 hour
-
-test:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
-  script:
-    - npm run test
-  cache:
-    paths:
-      - node_modules/
+    - |
+      echo "Installing ca-certificate tool"
+      apt-get update && apt-get install -y ca-certificates
+    - |
+      echo "Setting up Zscaler certificate..."
+      cp $CERT_PATH $SYSTEM_CERTS_PATH
+      update-ca-certificates
+      export NODE_EXTRA_CA_CERTS="$SYSTEM_CERTS_PATH/$CERT_FILENAME"
+      export SSL_CERT_FILE="$SYSTEM_CERTS_PATH/$CERT_FILENAME"
+    - |
+      echo "Configuring .npmrc for REL Private Registry"
+      npm set @rel:registry=https://${REL_GITLAB_REG}/
+      npm set //${REL_GITLAB_REG}/:_authToken="${REL_GITLAB_AUTH_TOKEN}"
+    - |
+      echo "Running installation of packages..."
+      npm install --frozen-lockfile
+  only:
+    - merge_requests
 
 lint:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
+  stage: verify
   script:
     - npm run lint
-  cache:
-    paths:
-      - node_modules/
+  only:
+    - merge_requests
 
-prettier:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
+format-check:
+  stage: verify
   script:
-    - npm run prettier
-  cache:
-    paths:
-      - node_modules/
-check-types:
-  stage: code-quality
-  image: node:20.11.1
-  tags:
-    - global
-  script:
-    - npm run check-types
-  cache:
-    paths:
-      - node_modules/
-sast:
-  stage: code-quality
-  tags:
-    - global
-  cache:
-    paths:
-      - dist/
-      - node_modules/
-secret_detection:
-  stage: code-quality
-  tags:
-    - global
-include:
-  - template: Security/SAST.gitlab-ci.yml
-  - template: Security/Secret-Detection.gitlab-ci.yml
+    - npm run format:check
+  only:
+    - merge_requests
 
+typescript:
+  stage: verify
+  script:
+    - npm run compile
+  only:
+    - merge_requests
+
+tests:
+  stage: verify
+  script:
+    - npm run test
+  only:
+    - merge_requests
