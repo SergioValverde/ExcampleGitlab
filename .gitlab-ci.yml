@@ -22,7 +22,7 @@ integration_tests:
       when: manual
 
 include:
-- template: Security/SAST.gitlab-ci.yml
+- template: Security/Secret-Detection.gitlab-ci.yml
 
 build:
   stage: build
