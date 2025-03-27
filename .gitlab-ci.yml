@@ -1,9 +1,37 @@
 stages:
-  - void
+  - build
+  - test
+  - push
 
-void_job:
-  stage: void
-  tags:
-    - global
+variables:
+  DOCKER_IMAGE: my-registry.example.com/my-project/my-app
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
   script:
-    - echo "I have nothing to do on this code :)"
+    - docker build -t $DOCKER_IMAGE:$CI_COMMIT_SHA .
+    - docker tag $DOCKER_IMAGE:$CI_COMMIT_SHA $DOCKER_IMAGE:latest
+  only:
+    - main
+
+test:
+  stage: test
+  image: $DOCKER_IMAGE:$CI_COMMIT_SHA
+  script:
+    - echo "Running container tests..."
+    - ./run-tests.sh
+
+push:
+  stage: push
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin $DOCKER_REGISTRY
+    - docker push $DOCKER_IMAGE:$CI_COMMIT_SHA
+    - docker push $DOCKER_IMAGE:latest
+  only:
+    - main
