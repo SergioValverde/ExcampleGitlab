@@ -1,44 +1,17 @@
 stages:
-  - test
   - build
-  - deploy
-
-unit_tests:
-  stage: test
-  script:
-    - echo "Running unit tests..."
-    - npm test
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-integration_tests:
-  stage: test
-  script:
-    - echo "Running integration tests..."
-    - npm run test:integration
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-
-include:
-- template: Security/Secret-Detection.gitlab-ci.yml
 
 build:
   stage: build
+  allow_failure: false
+  only:
+    - dev
+    - test
+    - ppr
+    - prod
+  tags:
+    - randstad-bluex
   script:
-    - echo "Building application..."
-    - npm run build
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-deploy_prod:
-  stage: deploy
-  script:
-    - echo "Deploying to production..."
-    - ./deploy.sh prod
-  environment:
-    name: production
-    url: https://example.com
-  rules:
-    - if: '$CI_COMMIT_TAG != null'
+    - git remote add codecommit /fake-temp-url || true
+    - git remote set-url codecommit ssh://git-codecommit.eu-west-1.amazonaws.com-new/v1/repos/git-bluex-prd-bx-gitlab-runner
+    - git push codecommit HEAD:refs/heads/$CI_COMMIT_REF_NAME
