@@ -21,6 +21,9 @@ integration_tests:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
 
+include:
+- template: Security/SAST.gitlab-ci.yml
+
 build:
   stage: build
   script:
